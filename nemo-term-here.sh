@@ -81,6 +81,36 @@ get_default_terminal() {
     echo "gnome-terminal"
 }
 
+# Launch terminal and focus the new window
+launch_and_focus() {
+    local dir="$1"
+
+    # Snapshot all visible window IDs before launch
+    local before
+    before=$(xdotool search --onlyvisible --name '' 2>/dev/null | sort -n)
+
+    # Launch terminal in specified directory (or current if empty)
+    if [[ -n "$dir" ]]; then
+        cd "$dir"
+    fi
+    $terminal_cmd &
+
+    # Wait for new window to appear and focus it (up to 3s)
+    for i in {1..30}; do
+        sleep 0.1
+        local after
+        after=$(xdotool search --onlyvisible --name '' 2>/dev/null | sort -n)
+        local new_window
+        new_window=$(comm -13 <(echo "$before") <(echo "$after") | tail -1)
+        if [[ -n "$new_window" ]]; then
+            xdotool windowactivate --sync "$new_window" 2>/dev/null
+            xdotool windowfocus --sync "$new_window" 2>/dev/null
+            return 0
+        fi
+    done
+    return 1
+}
+
 # Main logic
 nemo_dir=$(get_active_nemo_directory)
 terminal_cmd=$(get_default_terminal)
@@ -88,19 +118,19 @@ terminal_cmd=$(get_default_terminal)
 case "$nemo_dir" in
     "NO_NEMO_OPEN")
         echo "No Nemo windows open, or home is open, launching $terminal_cmd in home"
-        "$terminal_cmd"
+        launch_and_focus ""
         ;;
     "ERROR_STACK_FAILED")
         echo "ERROR: Nemo windows found but couldn't determine directory from stack"
-        "$terminal_cmd"
+        launch_and_focus ""
         ;;
     *)
         if [[ -d "$nemo_dir" ]]; then
             echo "Opening $terminal_cmd in: $nemo_dir"
-            cd "$nemo_dir" && "$terminal_cmd"
+            launch_and_focus "$nemo_dir"
         else
             echo "ERROR: Directory doesn't exist: $nemo_dir"
-            "$terminal_cmd"
+            launch_and_focus ""
         fi
         ;;
 esac
