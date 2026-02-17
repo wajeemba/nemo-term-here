@@ -32,14 +32,14 @@ get_active_nemo_directory() {
     # Step 2: Check if currently active window is a Nemo window
     local active_window=$(xdotool getactivewindow 2>/dev/null)
     if [[ -n "$active_window" ]]; then
-        for entry in $nemo_dirs; do
+        while IFS= read -r entry; do
             local path="${entry%:*}"
             local window_id="${entry#*:}"
             if [[ "$window_id" == "$active_window" ]]; then
                 echo "$path"
                 return
             fi
-        done
+        done <<< "$nemo_dirs"
     fi
     
     # Step 3: Find most recently focused Nemo window in stacking order
@@ -48,14 +48,14 @@ get_active_nemo_directory() {
     for window_hex in $all_windows; do
         window_hex=${window_hex#0x}  # Remove 0x prefix
         local window_dec=$((16#$window_hex))
-        for entry in $nemo_dirs; do
+        while IFS= read -r entry; do
             local path="${entry%:*}"
             local entry_id="${entry#*:}"
             if [[ "$entry_id" == "$window_dec" ]]; then
                 echo "$path"
                 return
             fi
-        done
+        done <<< "$nemo_dirs"
     done
     
     # Step 4: If we get here, something went wrong
